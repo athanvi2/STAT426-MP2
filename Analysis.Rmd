@@ -1,0 +1,69 @@
+---
+title: "Data Analysis Notebook - MP2"
+author: "Bella Cruz, Maria Larmon, Abhi Thanvi"
+date: "2023-12-03"
+output: pdf_document
+toc: yes
+header-includes:
+  - "\\usepackage{xcolor}"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+# Check if tidyverse is already installed, if not, install it
+if (!requireNamespace("tidyverse", quietly = TRUE)) {
+  install.packages("tidyverse")
+}
+
+# Check if tidyr is already installed, if not, install it
+if (!requireNamespace("tidyr", quietly = TRUE)) {
+  install.packages("tidyr")
+}
+
+# Check if dplyr is already installed, if not, install it
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+
+# Load the packages
+library(tidyverse)
+
+```
+
+\newpage
+
+\newpage
+# \textcolor{cyan!90!blue}{Data Exploration} \vspace{2mm}
+\textbf{This section is a exploratory analysis of this data set in order to evaluate the water quality attributes and their relationship with the drinking water status.}
+
+\newpage
+# \textcolor{cyan!90!blue}{Model Fitting} \vspace{2mm}
+\textbf{This section fits an appropriate model to this data set in order to make predictions about the potability of water given a set of measurements on water quality attributes.}
+
+\newpage 
+# \textcolor{cyan!90!blue}{Predictor Selection} \vspace{2mm}
+\textbf{This section selects the best predictors determining the water potability. Make sure you take care about potential collinearity issues (if any), and includes appropriate model diagnostics taking into account potential unduly observations.}
+
+\newpage 
+# \textcolor{cyan!90!blue}{Model Evaluation - Predictive Power} \vspace{2mm}
+\textbf{This section summarizes the predictive power of the final model selected, using correlation based measures and likelihood based measures.}
+
+\newpage 
+# \textcolor{cyan!90!blue}{Model Evaluation - Classification Tables} \vspace{2mm}
+\textbf{This section uses classification tables to measure the predictive power of the best final model selected based on the results obtained in (c). Implement the leave-one-out cross-validation
+method for this step.}
+
+\newpage
+**Note: **
+Note: You can use the heart disease dataset analysis posted in Canvas Module 6 as a guide
+for your analysis. Please note that this is not an extensive analysis but you can use the pieces
+of code that you need. More details about this example can be found in Faraway, J.J. (2016):
+Extending the Linear Model with R, Chapter 2. A good reference about model diagnostics can
+be found in Dunn, P/K. and Smyth, G.K. (2018): Generalized Linear Models with Examples
+in R, Chapter 8.
+
+
+
