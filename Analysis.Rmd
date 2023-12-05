@@ -33,15 +33,50 @@ library(tidyverse)
 
 ```
 
+# \textcolor{salmon}{Data Profile}
+```{r import}
+#Reading our dataset
+water_pot <- data.frame(read_csv("data/water_potability.csv", 
+                                   show_col_types=FALSE))
+head(water_pot)
+dim(water_pot)
+# Cleaning dataset by removing any NA values
+water_pot <- na.omit(water_pot)
+head(water_pot)
+dim(water_pot)
+```
+# \textcolor{black}{Above, the dataset was cleaned by dropping any NA values for any of the water quality attributes.}
+
 \newpage
 
 \newpage
 # \textcolor{cyan!90!blue}{Data Exploration} \vspace{2mm}
 \textbf{This section is a exploratory analysis of this data set in order to evaluate the water quality attributes and their relationship with the drinking water status.}
 
+\textbf{1.a)}
+```{r import}
+
+correlation_matrix <- round(cor(water_pot), 2)
+print(correlation_matrix)
+
+#install.packages("PerformanceAnalytics")
+#library("PerformanceAnalytics")
+chart.Correlation(water_pot, histogram=TRUE, pch=25)
+
+```
+# \textcolor{black}{The correlation matrix provides insight into the relationships between the water quality attributes and potability. It looks like the attribute hardness has zero correlation with the potability, so this attribute is not necessary for fitting a model when potability is the response. Sulfate, conductivity, and organic carbon all have a negative correlation with potability, implying that lower probability of potable water is related to higher levels of sulfate, conductivity, and/or organic carbon in the water. The largest magnitude in the correlation matrix is 0.16, which is relatively larger than the other correlations. This could potentially imply collinearity between sulfate and solids. The graphs visually show the correlation between each of the attributes and the potability. The relationships between potability and ph, Hardness, Chloramines, Sulfate and Organic_carbon all have non-linear trends, implying that these attributes are not effective for predicting a water's potability.}
+
 \newpage
 # \textcolor{cyan!90!blue}{Model Fitting} \vspace{2mm}
 \textbf{This section fits an appropriate model to this data set in order to make predictions about the potability of water given a set of measurements on water quality attributes.}
+```{r import}
+#Linear Logit Model
+mod <- glm(Potability ~ Solids + Conductivity + Trihalomethanes + Turbidity, family=binomial, data=water_pot)
+#library(ResourceSelection)
+hl <- hoslem.test(water_pot$Potability, fitted(mod))
+print(hl)
+```
+# \textcolor{black}{Based on the results of the correlation matrix and its visuals, a linear logit model was created with Potability as the reponse variable with the predictors, Solids, Conductivity, Trihalomethanes, and Turbidity. These predictors were chosen because there was a linear trend with each attribute's relationship to potability. From the Hosmer and Lemeshow Goodness-of-fit test, we can assume that the model created is a good fit for the data.}
 
 \newpage 
 # \textcolor{cyan!90!blue}{Predictor Selection} \vspace{2mm}
