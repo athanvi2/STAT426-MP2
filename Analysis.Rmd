@@ -4,8 +4,9 @@ author: "Bella Cruz, Maria Larmon, Abhi Thanvi"
 date: "2023-12-03"
 output: pdf_document
 toc: yes
-header-includes:
-  - "\\usepackage{xcolor}"
+header-includes: 
+- \usepackage{xcolor}
+- \definecolor{salmon}{RGB}{250,150,114}
 ---
 
 ```{r setup, include=FALSE}
@@ -27,69 +28,236 @@ if (!requireNamespace("tidyr", quietly = TRUE)) {
 if (!requireNamespace("dplyr", quietly = TRUE)) {
   install.packages("dplyr")
 }
-
+# Install and load the corrplot package
+if (!requireNamespace("corrplot", quietly = TRUE)) {
+  install.packages("corrplot")
+}
 # Load the packages
 library(tidyverse)
-
+library(dplyr)
+library(tidyr)
+library(corrplot)
 ```
 
-# \textcolor{salmon}{Data Profile}
-```{r import}
+\newpage
+# \textcolor{salmon}{Data Exploration}
+```{r import, include}
 #Reading our dataset
-water_pot <- data.frame(read_csv("data/water_potability.csv", 
-                                   show_col_types=FALSE))
+water_pot <- read.csv("data/water_potability.csv", header = TRUE)
+
 head(water_pot)
-dim(water_pot)
+```
+The dataset initially has 3276 rows and 10 columns.
+
+**Columns:**
+
+- **ph:** Represents the pH levels.
+- **Hardness:** Indicates water hardness.
+- **Solids:** Denotes the concentration of dissolved solids.
+- **Chloramines:** Reflects the presence of chloramines in the water.
+- **Sulfate:** Indicates sulfate levels.
+- **Conductivity:** Represents the electrical conductivity of the water.
+- **Organic_carbon:** Denotes the concentration of organic carbon.
+- **Trihalomethanes:** Reflects the presence of trihalomethanes.
+- **Turbidity:** Indicates water turbidity.
+- **Potability:** Binary variable (0 or 1) indicating water potability, where 1 represents potable water.
+
+Please note that some values are missing (NA) in the dataset so we drop them before furthering our analysis. Now our row count is 2011 and we call our data as `df` for simplicity.
+```{r clean, include=FALSE}
 # Cleaning dataset by removing any NA values
-water_pot <- na.omit(water_pot)
-head(water_pot)
-dim(water_pot)
+df <- na.omit(water_pot)
+head(df)
 ```
-# \textcolor{black}{Above, the dataset was cleaned by dropping any NA values for any of the water quality attributes.}
 
 \newpage
+## \textcolor{cyan!70!green}{Part A: Data Exploration} \vspace{2mm}
+This section is a exploratory analysis of this data set in order to evaluate the water quality attributes and their relationship with the drinking water status. We aim to better understand what patterns we are dealing with in our data to make a better decision during modelling process.
 
-\newpage
-# \textcolor{cyan!90!blue}{Data Exploration} \vspace{2mm}
-\textbf{This section is a exploratory analysis of this data set in order to evaluate the water quality attributes and their relationship with the drinking water status.}
-
-\textbf{1.a)}
-```{r import}
-
-correlation_matrix <- round(cor(water_pot), 2)
-print(correlation_matrix)
-
-#install.packages("PerformanceAnalytics")
-#library("PerformanceAnalytics")
-chart.Correlation(water_pot, histogram=TRUE, pch=25)
-
+```{r matrix}
+corrplot(cor(df))
 ```
-# \textcolor{black}{The correlation matrix provides insight into the relationships between the water quality attributes and potability. It looks like the attribute hardness has zero correlation with the potability, so this attribute is not necessary for fitting a model when potability is the response. Sulfate, conductivity, and organic carbon all have a negative correlation with potability, implying that lower probability of potable water is related to higher levels of sulfate, conductivity, and/or organic carbon in the water. The largest magnitude in the correlation matrix is 0.16, which is relatively larger than the other correlations. This could potentially imply collinearity between sulfate and solids. The graphs visually show the correlation between each of the attributes and the potability. The relationships between potability and ph, Hardness, Chloramines, Sulfate and Organic_carbon all have non-linear trends, implying that these attributes are not effective for predicting a water's potability.}
+Based on the correlation matrix plot, it seems like the dataset is forgiving in that no two variables are strongly correlated with one another. So, we should be good and not see any multicollinearity issue when fitting model.
 
-\newpage
-# \textcolor{cyan!90!blue}{Model Fitting} \vspace{2mm}
-\textbf{This section fits an appropriate model to this data set in order to make predictions about the potability of water given a set of measurements on water quality attributes.}
-```{r import}
+```{r modelfail, include=FALSE}
 #Linear Logit Model
-mod <- glm(Potability ~ Solids + Conductivity + Trihalomethanes + Turbidity, family=binomial, data=water_pot)
-#library(ResourceSelection)
-hl <- hoslem.test(water_pot$Potability, fitted(mod))
-print(hl)
+mod <- glm(Potability ~ ., family=binomial, data=water_pot)
+summary(mod)
 ```
-# \textcolor{black}{Based on the results of the correlation matrix and its visuals, a linear logit model was created with Potability as the reponse variable with the predictors, Solids, Conductivity, Trihalomethanes, and Turbidity. These predictors were chosen because there was a linear trend with each attribute's relationship to potability. From the Hosmer and Lemeshow Goodness-of-fit test, we can assume that the model created is a good fit for the data.}
+
+**BUT** when we initially fit a full linear logit model (can be seen in our Analysis.Rmd) on the data, we saw an issue that none of our predictors were significant. So we decided to look more closely at how our data is dispersed. 
+
+## \textcolor{cyan!70!green}{Dispersion of Data}
+```{r, echo=FALSE, fig.width=12}
+par(mfrow=c(1,2))
+# Histogram for the first column with respect to Potability
+hist(df[, 1][df$Potability == 0], col = "salmon", 
+     main = paste("Histogram of", names(df)[1]), 
+     xlab = names(df)[1], ylab = "Frequency", 
+     xlim = c(min(df[, 1]), max(df[, 1])))
+hist(df[, 1][df$Potability == 1], col = "lightgreen", add = TRUE)
+legend("topright", legend = c("0", "1"), 
+       fill = c("salmon", "lightgreen"))
+
+# Histogram for the second column with respect to Potability
+hist(df[, 2][df$Potability == 0], col = "salmon", 
+     main = paste("Histogram of", names(df)[2]), 
+     xlab = names(df)[2], ylab = "Frequency", 
+     xlim = c(min(df[, 2]), max(df[, 2])))
+hist(df[, 2][df$Potability == 1], col = "lightgreen", add = TRUE)
+legend("topright", legend = c("0", "1"), 
+       fill = c("salmon", "lightgreen"))
+
+```
+The `pH vs. Potability` graph and `Hardness vs. Potability` histogram graphs both imply that the dispersion of points for when the water is not potable (Potability=0) tends to cluster around the center range of their respective levels compared to the dispersion of points when the water is deemed potable (Potability=1). This could have been the reason for our main effects model to not suffice and suggest that we consider adding quadratic terms into the fitted model as well.
+
+\newpage
+# \textcolor{salmon}{Part B. Model Fitting} \vspace{2mm}
+This section fits an appropriate model to this data set in order to make predictions about the potability of water given a set of measurements on water quality attributes. We learnt that a Main Effects model will not suffice and therefore will attempt to fit a model with quadratic terms and see the results.
+```{r}
+full_quad_mod <- glm(Potability ~ 
+                       ph + I(ph^2) + 
+                       Hardness + I(Hardness^2) + 
+                       Solids + I(Solids^2) + 
+                       Chloramines + I(Chloramines^2) + 
+                       Sulfate + I(Sulfate^2) + 
+                       Conductivity + I(Conductivity^2) + 
+                       Organic_carbon + I(Organic_carbon^2) + 
+                       Trihalomethanes + I(Trihalomethanes^2) + 
+                       Turbidity + I(Turbidity^2), family=binomial, data=df)
+summary(full_quad_mod)
+```
+Perfect! Now at least we can see some predictors being significant. This means this transformation/switch was good. We will later do predictor selection so we can move on from this section!
 
 \newpage 
-# \textcolor{cyan!90!blue}{Predictor Selection} \vspace{2mm}
-\textbf{This section selects the best predictors determining the water potability. Make sure you take care about potential collinearity issues (if any), and includes appropriate model diagnostics taking into account potential unduly observations.}
+# \textcolor{salmon}{Part C. Predictor Selection} \vspace{2mm}
+We just chose a full model with quadratic terms (`full_quad_model`) and saw better results. However, only few predictors were significant while others were not. In this section, we aim to select the best predictors determining the water potability.
+
+We will consider all three `forward, backward, step-wise` selection methods and choose the one that produces model (i.e. smallest AIC)
+
+## \textcolor{cyan!70!green}{Selection Algorithms}
+```{r}
+intercept_model <- glm(Potability ~ 1, family=binomial, data=df)
+
+# Forward Selection
+forward_mod <- step(intercept_model, ~ ph + I(ph^2) + Hardness + I(Hardness^2) 
+                    + Solids + I(Solids^2) + Chloramines + I(Chloramines^2) 
+                    + Sulfate + I(Sulfate^2) + Conductivity + I(Conductivity^2)
+                    + Organic_carbon + I(Organic_carbon^2) 
+                    + Trihalomethanes + I(Trihalomethanes^2) 
+                    + Turbidity + I(Turbidity^2), direction="forward", trace=0)
+summary(forward_mod)
+```
+```{r}
+# Backward Selection
+backward_mod <- step(full_quad_mod, direction="backward", trace=0)
+summary(backward_mod)
+```
+```{r}
+# Step Selection
+step_mod <- step(intercept_model, ~ ph + I(ph^2) + Hardness + I(Hardness^2) 
+                    + Solids + I(Solids^2) + Chloramines + I(Chloramines^2) 
+                    + Sulfate + I(Sulfate^2) + Conductivity + I(Conductivity^2)
+                    + Organic_carbon + I(Organic_carbon^2) 
+                    + Trihalomethanes + I(Trihalomethanes^2) 
+                    + Turbidity + I(Turbidity^2), direction="both", trace=0)
+summary(step_mod)
+```
+**Observations:**
+
+* Seems like `Forward Selection` and `Step-Wise Selection` both converged to the same subset of predictors
+  - `Intercept`, `Solids^2^` (not super signif.), `Chloramines^2^`, `Chloromines` 
+  - Both have **AIC = 2695.8**
+* `Backward Selection` had a longer list of selected predictors and can be seen above
+  - `Solids` is selected in the model but is not significant (we shall see what to with this later)
+  - Has the smaller **AIC = 2634.3**
+Since the `Backward Selection` produced the smaller AIC among the three selection algorithms, we shall move forward with running diagnositcs on `backward_mod`.
+
+## \textcolor{cyan!70!green}{Model Diagnostics - Backward Selected}
+
+\textcolor{red}{NEED TO DECIDE IF I NEED TO REMOVE `Solids` as predictor from the model....OH Monday to Confirm...}
+```{r}
+
+drop_results <- drop1(backward_mod, test = "Chisq")
+
+# Create a data frame with variable names and their p-values
+drop_terms <- data.frame(
+  Variable = rownames(drop_results),
+  P_Value = drop_results$Pr
+)
+
+# Print the terms and their significance
+print(drop_terms)
+
+# Remove 'Solids' if it's in the list of drop-able terms
+if ('Solids' %in% drop_terms$Variable[drop_terms$P_Value > 0.05]) {
+  tmp_model <- update(backward_mod, . ~ . - Solids)
+} else {
+  tmp_model <- backward_mod
+}
+
+# Display the summary of the final model
+summary(tmp_model)
+```
+Dropping `Solids` Increased our AIC by 0.7. We are at a fork here. But we will use the Backward Selection model **with** the `Solids` predictor for 2 reasons:
+
+- Most importantly, the AIC increased slightly by removing the predictor
+- Secondly, in real world, it would make sense that solids dissolved in the water would be one of important factor to determine potability.
+
+```{r residual, message=FALSE}
+library(dplyr)
+
+tmp_df <- df %>%
+  mutate(
+    residuals = residuals(backward_mod),
+    linpred = predict(backward_mod)
+  ) %>%
+  group_by(bin = cut(linpred, breaks = unique(quantile(linpred, (1:100)/101)))) %>%
+  summarise(
+    residuals = mean(residuals),
+    linpred = mean(linpred)
+  )
+
+# Create a smoother line plot using ggplot2
+ggplot(tmp_df, aes(x = linpred, y = residuals, group = 1)) +
+  geom_point(color = "salmon") +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgreen") +
+  labs(
+    title = "Residuals vs. Linear Predictor",
+    x = "Linear Predictor",
+    y = "Residuals"
+  ) +
+  theme_minimal()
+```
+The residual plots looks okay because the residuals are following the general trend of the linear predictor and seems like are equally below and above the prediction line. However, we need to run more diagnositcs since our data is not grouped which makes us unconfident in our diagnostic-analysis.
+
+```{r}
+# ....NEED TO RUN MORE DIAGNOSTICS LATER....
+```
 
 \newpage 
-# \textcolor{cyan!90!blue}{Model Evaluation - Predictive Power} \vspace{2mm}
+# \textcolor{salmon}{Model Evaluation - Predictive Power} \vspace{2mm}
 \textbf{This section summarizes the predictive power of the final model selected, using correlation based measures and likelihood based measures.}
+```{r}
+# correlation measure final model
+cor(df$Potability, fitted(backward_mod))
+```
+A correlation coefficient of 0.22 suggests a positive but weak linear relationship between the observed `Potability` values and the fitted values from the logistic regression model we got from backward selection.
+
+```{r}
+# likelihood measure final model
+lik <- (logLik(backward_mod) - logLik(intercept_model))/(0-logLik(intercept_model))
+as.numeric(lik)
+```
+Although, `Backward Model` gave us the lowest AIC, the Likelihood Test Statistic is 0.036 which is relatively small. Indicating that our `Backward Model` is not significantly better at prediction compared to the `Intercept Model`.
 
 \newpage 
-# \textcolor{cyan!90!blue}{Model Evaluation - Classification Tables} \vspace{2mm}
+# \textcolor{salmon}{Model Evaluation - Classification Tables} \vspace{2mm}
 \textbf{This section uses classification tables to measure the predictive power of the best final model selected based on the results obtained in (c). Implement the leave-one-out cross-validation
 method for this step.}
+
+```{r}
+# Maria ur time to shine!
+```
 
 \newpage
 **Note: **
