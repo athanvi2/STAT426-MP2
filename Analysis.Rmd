@@ -40,6 +40,15 @@ library(corrplot)
 ```
 
 \newpage
+
+# \textcolor{salmon}{Our Team}
+Our team members and their roles were the following:
+
+
+- **Bella Cruz:** Data Cleaning; Data Exploration; Model Fitting
+- **Abhi Thanvi:** Formatting; Model Fitting; Predictive Selection and Power
+- **Maria Larmon:** Classification tables; Predictive power; Cross-Validation
+
 # \textcolor{salmon}{Data Exploration}
 ```{r import, include}
 #Reading our dataset
