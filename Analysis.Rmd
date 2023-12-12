@@ -261,12 +261,65 @@ Although, `Backward Model` gave us the lowest AIC, the Likelihood Test Statistic
 
 \newpage 
 # \textcolor{salmon}{Model Evaluation - Classification Tables} \vspace{2mm}
-\textbf{This section uses classification tables to measure the predictive power of the best final model selected based on the results obtained in (c). Implement the leave-one-out cross-validation
-method for this step.}
+\textbf{This section uses classification tables to measure the predictive power of the best final model selected based on the results obtained in (c). Implement the leave-one-out cross-validation method for this step.}
+
+```{r include=FALSE}
+library(caret)
+library(tidymodels)
+```
 
 ```{r}
-# Maria ur time to shine!
+pi0 <- 0.5
+class_table = table(y=df$Potability, yhat=as.numeric(fitted(backward_mod) > pi0))
+class_table
 ```
+
+```{r}
+sensitivity(class_table)
+```
+
+```{r}
+specificity(class_table)
+```
+
+```{r}
+posPredValue(class_table)
+```
+
+```{r}
+accuracy(class_table)
+```
+
+
+Using the backwards model we are able to create a classification table and then calculate more information about the predictive power of the final model.
+For our final model:
+our sensitivity is 0.627,
+our specificity is 0.602,
+The overall accuracy of our model is about 62.4%
+and the positive predictive value of our model is about 0.91
+
+
+```{r}
+df_fact = df |>
+  mutate(Potability = factor(Potability))
+```
+
+
+```{r}
+controlLoo <- trainControl(method="LOOCV")
+
+loocv_model <- train(Potability ~ ph + I(ph^2) + Hardness + I(Hardness^2) + Solids + 
+        Chloramines + I(Chloramines^2) + Sulfate + I(Sulfate^2), data=df_fact, 
+        trControl=controlLoo, method = "glm")
+
+print(loocv_model)
+```
+
+Using the leave-one-out cross-validation method to ensure that our data is not overly-
+optimistic, we receive an overall accuracy of about 61.9%. This may be a better estimation of our model's actual accuracy because it cross validates against the data.
+
+
+
 
 \newpage
 **Note: **
