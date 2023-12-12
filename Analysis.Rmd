@@ -32,11 +32,17 @@ if (!requireNamespace("dplyr", quietly = TRUE)) {
 if (!requireNamespace("corrplot", quietly = TRUE)) {
   install.packages("corrplot")
 }
+if (!requireNamespace("faraway", quietly = TRUE)) {
+  install.packages("faraway")
+}
 # Load the packages
 library(tidyverse)
 library(dplyr)
 library(tidyr)
 library(corrplot)
+library(ggplot2)
+library(faraway)
+library(caret)
 ```
 
 \newpage
@@ -51,9 +57,7 @@ Our team members and their roles were the following:
 
 # \textcolor{salmon}{Data Exploration}
 ```{r import, include}
-#Reading our dataset
 water_pot <- read.csv("data/water_potability.csv", header = TRUE)
-
 head(water_pot)
 ```
 The dataset initially has 3276 rows and 10 columns.
@@ -73,7 +77,6 @@ The dataset initially has 3276 rows and 10 columns.
 
 Please note that some values are missing (NA) in the dataset so we drop them before furthering our analysis. Now our row count is 2011 and we call our data as `df` for simplicity.
 ```{r clean, include=FALSE}
-# Cleaning dataset by removing any NA values
 df <- na.omit(water_pot)
 head(df)
 ```
@@ -88,7 +91,7 @@ corrplot(cor(df))
 Based on the correlation matrix plot, it seems like the dataset is forgiving in that no two variables are strongly correlated with one another. So, we should be good and not see any multicollinearity issue when fitting model.
 
 ```{r modelfail, include=FALSE}
-#Linear Logit Model
+# Linear Logit Model (FAILED)
 mod <- glm(Potability ~ ., family=binomial, data=water_pot)
 summary(mod)
 ```
@@ -183,9 +186,9 @@ Since the `Backward Selection` produced the smaller AIC among the three selectio
 
 ## \textcolor{cyan!70!green}{Model Diagnostics - Backward Selected}
 
-\textcolor{red}{NEED TO DECIDE IF I NEED TO REMOVE `Solids` as predictor from the model....OH Monday to Confirm...}
-```{r}
+\textcolor{red}{Here we are deciding if we should drop the `Solids` predictor as it is insignificant when looking at the summary of our selected model}
 
+```{r}
 drop_results <- drop1(backward_mod, test = "Chisq")
 
 # Create a data frame with variable names and their p-values
@@ -193,10 +196,7 @@ drop_terms <- data.frame(
   Variable = rownames(drop_results),
   P_Value = drop_results$Pr
 )
-
-# Print the terms and their significance
-print(drop_terms)
-
+#print(drop_terms)
 # Remove 'Solids' if it's in the list of drop-able terms
 if ('Solids' %in% drop_terms$Variable[drop_terms$P_Value > 0.05]) {
   tmp_model <- update(backward_mod, . ~ . - Solids)
@@ -204,13 +204,12 @@ if ('Solids' %in% drop_terms$Variable[drop_terms$P_Value > 0.05]) {
   tmp_model <- backward_mod
 }
 
-# Display the summary of the final model
 summary(tmp_model)
 ```
-Dropping `Solids` Increased our AIC by 0.7. We are at a fork here. But we will use the Backward Selection model **with** the `Solids` predictor for 2 reasons:
+Dropping `Solids` Increased our AIC by 0.7.  But we will use the Backward Selection model **with** the `Solids` predictor for 2 reasons:
 
-- Most importantly, the AIC increased slightly by removing the predictor
-- Secondly, in real world, it would make sense that solids dissolved in the water would be one of important factor to determine potability.
+- Most importantly, the AIC increased slightly by removing the predictor. Also, we are choosing model predictors based on AIC criterion. We are not doing hypothesis testing on the predictors significance, switching back-forth like that will be inconsistent and inaccurate in a way.
+- Secondly, in real world intuition, it would make sense that solids dissolved in the water would be one of important factor to determine potability.
 
 ```{r residual, message=FALSE}
 library(dplyr)
@@ -226,7 +225,6 @@ tmp_df <- df %>%
     linpred = mean(linpred)
   )
 
-# Create a smoother line plot using ggplot2
 ggplot(tmp_df, aes(x = linpred, y = residuals, group = 1)) +
   geom_point(color = "salmon") +
   geom_smooth(method = "lm", se = FALSE, color = "lightgreen") +
@@ -237,11 +235,19 @@ ggplot(tmp_df, aes(x = linpred, y = residuals, group = 1)) +
   ) +
   theme_minimal()
 ```
-The residual plots looks okay because the residuals are following the general trend of the linear predictor and seems like are equally below and above the prediction line. However, we need to run more diagnositcs since our data is not grouped which makes us unconfident in our diagnostic-analysis.
+The residual plots looks okay because the residuals are following the general trend of the linear predictor and seems like are equally below and above the prediction line. However, we need to run more diagnostics since our data is not grouped which makes us unconfident in our diagnostic-analysis. But as of now nothing seems to concerning
 
-```{r}
-# ....NEED TO RUN MORE DIAGNOSTICS LATER....
+```{r diag, fig.width=12, echo=FALSE}
+par(mfrow=c(1,2))
+# leverage plot
+halfnorm(hatvalues(backward_mod))
+#plot cooks
+plot(cooks.distance(backward_mod))
 ```
+```{r lever, include=FALSE}
+filter(df, hatvalues(backward_mod)>0.04)
+```
+Based on the plots (code muted to save space :D)for leverages and cook's distance, it seems like there are some points that have higher influence than other points. A specific point would be Index 500 which seems to have a high leverage and high cook's distance. However, the cook's distance is less than 1, so we can consider this point to be okay and not really a problem for us! Let's move on to see our model's predictive power.
 
 \newpage 
 # \textcolor{salmon}{Model Evaluation - Predictive Power} \vspace{2mm}
@@ -263,72 +269,39 @@ Although, `Backward Model` gave us the lowest AIC, the Likelihood Test Statistic
 # \textcolor{salmon}{Model Evaluation - Classification Tables} \vspace{2mm}
 \textbf{This section uses classification tables to measure the predictive power of the best final model selected based on the results obtained in (c). Implement the leave-one-out cross-validation method for this step.}
 
-```{r include=FALSE}
-library(caret)
-library(tidymodels)
+```{r }
+# CV
+pi.0 <- 0.5
+num = nrow(df)
+pihat.cv <- numeric(num)
+
+for (i in 1:num) {
+  pihat.cv[i] <- predict(update(backward_mod, subset=-i), newdata=df[i, ], 
+                         type="response")
+}
+tab1 <- table(y=df$Potability, yhat=as.numeric(pihat.cv > pi.0))
+tab1
 ```
 
 ```{r}
-pi0 <- 0.5
-class_table = table(y=df$Potability, yhat=as.numeric(fitted(backward_mod) > pi0))
-class_table
+sensitivity <- tab1[2,2] / (tab1[2,2] + tab1[2,1])
+specificity <- tab1[1,1] / (tab1[1,1] + tab1[1,2])
+
+cat("Sensitivity: ", sensitivity, "\n", "Specificity: ", 
+    specificity)
 ```
+In other words, our model can correctly identify potable water approximately 19% of the time (low sensitivity). However, our model excels at correctly identifying non-potable water with an accuracy of 90% (high specificity). Additionally, the higher specificity indicates that the risk of falsely categorizing non-potable water as potable is relatively low when using the backward_mod model.
 
-```{r}
-sensitivity(class_table)
-```
-
-```{r}
-specificity(class_table)
-```
-
-```{r}
-posPredValue(class_table)
-```
-
-```{r}
-accuracy(class_table)
-```
-
-
-Using the backwards model we are able to create a classification table and then calculate more information about the predictive power of the final model.
-For our final model:
-our sensitivity is 0.627,
-our specificity is 0.602,
 The overall accuracy of our model is about 62.4%
 and the positive predictive value of our model is about 0.91
 
+```{r}
+table(df$Potability)
+```
+One reason we suspect could be that we more data for non-potable water compared to potable water. Later, we might considering sampling equal counts for each category. This isn't a conclusion, but rather just an exercise for future to maybe see if the distribution of our target variable in our dataset impacts the sensitivity and specificity. [This bit is not part of our analysis, but something we are curious about.]
 
 ```{r}
-df_fact = df |>
-  mutate(Potability = factor(Potability))
+# Overall proportion correct
+(tab1[1,1] + tab1[2,2]) / (tab1[1,1] + tab1[2,2] + tab1[1,2] + tab1[2,1])
 ```
-
-
-```{r}
-controlLoo <- trainControl(method="LOOCV")
-
-loocv_model <- train(Potability ~ ph + I(ph^2) + Hardness + I(Hardness^2) + Solids + 
-        Chloramines + I(Chloramines^2) + Sulfate + I(Sulfate^2), data=df_fact, 
-        trControl=controlLoo, method = "glm")
-
-print(loocv_model)
-```
-
-Using the leave-one-out cross-validation method to ensure that our data is not overly-
-optimistic, we receive an overall accuracy of about 61.9%. This may be a better estimation of our model's actual accuracy because it cross validates against the data.
-
-
-
-
-\newpage
-**Note: **
-Note: You can use the heart disease dataset analysis posted in Canvas Module 6 as a guide
-for your analysis. Please note that this is not an extensive analysis but you can use the pieces
-of code that you need. More details about this example can be found in Faraway, J.J. (2016):
-Extending the Linear Model with R, Chapter 2. A good reference about model diagnostics can
-be found in Dunn, P/K. and Smyth, G.K. (2018): Generalized Linear Models with Examples
-in R, Chapter 8.
-
-
-
+The estimated probability of the `backward_mod` overall correctly classifying the water as potable or not is 61.8% which is not terrible. But considering, that this is related to health of the people, we still suggest to be safe and use the specificity to detect non-potable water as it seems to be more accurate (and safer response for the people who will be drinking the water).
